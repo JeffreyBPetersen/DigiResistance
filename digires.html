@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<style id="css">
+			body { font-family:Arial, Helvetica, sans-serif; font-size:13pt; }
+			.good { color: "#0000AA"; }
+			.evil { color: "#AA0000"; }
+			.neutral { color: black; }
+			.msg { font-size:12pt; vertical-align:top; padding:2px }
+			.center { text-align: center; }
+			button { font-size: 16pt; }
+		</style>
+	</head>
+	<body>
+		<h1 align=center id="gamename">DigiResistance</h1>
+		<table width="800px" align=center border="2px">
+			<tr id="playersandboard" height="250px">
+				<td id="playerinfo" width="250px">
+					Player: <a id="youholder"><font id="you" class="evil">Brad - Spy</font></a><br>
+					<br>
+					Other Players:
+					<div id="others">
+					<font>Jeffrey* [leader]</font><br>
+					<font class="evil">Darrell</font><br>
+					<font>Dave</font><br>
+					<font>Saki*</font><br>
+					<font>Alex</font><br>
+					<font class="evil">Tom*</font><br>
+					8<br>9<br>10<br>
+					</div>
+				</td>
+				<td id="questboard" width="550px" bgcolor="#dddddd">
+					<canvas id="board" height="250px" width="550px">
+					</canvas>
+				</td>
+			</tr>
+			<tr id="io" height="150px">
+				<td id="vote" width="250px">
+					<table height="100%" width="100%">
+						<tr height="50%" width="100%">
+							<td class="center" height="100%" width="50%"><div id="b1holder">
+								<button type=button id="b1">Approve</button>
+							</div></td>
+						</tr><tr height="50%" width="100%">
+							<td class="center" height="100%" width="50%"><div id="b2holder">
+								<button type=button id="b2">Reject</button>
+							</div></td>
+						</tr>
+					</table>
+				</td>
+				<td id="msgbox" width="550px" class="msg">
+					<div id="msgs" class="msg">
+						Do you accept this team for the mission?
+					</div>
+			</tr>
+		</table>
+		<script>
+			function getParam(name) {
+				name = name.replace(/[\[]/, "\\\[").replace(/[\]]/, "\\\]");
+				var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
+				results = regex.exec(location.search);
+				return results == null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+			}
+							
+			document.getElementById("gamename").innerHTML = getParam("gamename");
+			var canvas = document.getElementById("board");
+			canvas.addEventListener("mousedown",clicked);
+			var ctx = canvas.getContext("2d");
+		
+			var curphase = 1;
+			var failedvotes = 0;
+			var isLeader = false;
+			var numplayers = getParam("numplayers") || 7;
+			var yourname = getParam("yourname") || "Brad";
+			var yourID = getParam("yourID") || 107;
+			var yourChar = 1;//TODO AJAX getChar(yourID)
+						
+			var players = ["Brad", "Jeffrey", "Darrell", "Dave", "Saki", "Alex", "Tom"];//default
+			var plist = [[yourname,0],["xJeffrey",3],["xDarrell",4],["xDave",0],["xSaki",1],["xAlex",0],["xTom",5]];
+			
+			var clickableNames = true;//false;
+			var numselected = 0;
+			
+			var hist = new Array();
+			for(var p = 0; p < 5; p++){//phases
+				hist[p] = new Array();
+				for(var u = 0; u < plist.length; u++){//users
+					hist[p][u] = new Array();
+				}
+			}
+			
+			getPlayerList();
+			
+			var FLAGS = {
+					SELECTED:	1,
+					LEADER:		2,
+					COLORED:	4,
+					VOTED:		8,
+					APPROVED:	16,
+					REJECTED:	32 };
+					
+			var COLORS = {
+					VOTED:		"#CCCCCC",
+					APPROVED:	"#AAFFAA",
+					REJECTED:	"#FFAAAA"};
+			
+			function updateList(){
+				//getList, parse into plist
+				document.getElementById("others").innerHTML = '';
+				for(var i = 0; i < plist.length; i++){
+					var tags = '';
+					tags += plist[i][1] & FLAGS.SELECTED ? '*' : '';
+					tags += plist[i][1] & FLAGS.LEADER ? ' [leader]' : '';
+					if(plist[i][0] == yourname){
+						if(plist[i][1] & FLAGS.LEADER){
+							isLeader = true;
+						} else {
+							isLeader = false;
+						}
+						if(plist[i][1] & FLAGS.APPROVED){
+							document.getElementById("you").style.backgroundColor = COLORS.APPROVED;
+						} else if(plist[i][1] & FLAGS.REJECTED){
+							document.getElementById("you").style.backgroundColor = COLORS.REJECTED;
+						}
+						document.getElementById("you").class =(yourChar <= 5) ? "evil" : "good";
+						document.getElementById("you").innerHTML = yourname + tags + ' - ' + chars[yourChar];
+						if(clickableNames){
+							document.getElementById("youholder").setAttribute('onclick',"selectName(yourname)");
+						}
+					} else {			
+						var bgcolor;
+						if(plist[i][1] & FLAGS.APPROVED){
+							bgcolor = COLORS.APPROVED;
+						} else if(plist[i][1] & FLAGS.REJECTED){
+							bgcolor = COLORS.REJECTED;
+						} else if(plist[i][1] & FLAGS.VOTED){
+							bgcolor = COLORS.VOTED;
+						} else {
+							bgcolor = '';
+						}
+						var cclass = plist[i][1] & FLAGS.COLORED ? document.getElementById("you").class : "neutral";
+						if(clickableNames){
+							var linkstr = "<a class='"+cclass+"' onclick='selectName(\""+plist[i][0]+"\")' id='id"+i+"'>"+plist[i][0]+tags+"</font><br>";
+							document.getElementById("others").innerHTML += linkstr;
+							document.getElementById("id"+i).style.backgroundColor = bgcolor;
+						} else {
+							document.getElementById("others").innerHTML += "<font class='"+cclass+"'>"+plist[i][0]+tags+"</font><br>";
+						}
+					}
+				}
+			}
+			
+			var teamsize = [0,1,2,3,4,
+			[0,2,3,2,3,3],
+			[0,2,3,4,3,4],
+			[0,2,3,3,4,4],
+			[0,3,4,4,5,5],
+			[0,3,4,4,5,5],
+			[0,3,4,4,5,5]];
+			
+			var CHARCODES = {
+					ASSASSIN:	1,
+					MORGANA:	2,
+					OBERON:		3,
+					MORDRED:	4,
+					MINION:		5,
+					FOLLOWER:	6,
+					PERCIVAL:	7,
+					MERLIN:		8};
+					
+			var PHASES = {
+					NONE:		0,
+					CONFIRM:	1,
+					VOTE:		2,
+					MISSION:	3};
+					
+			var chars = ['','Assassin','Morgana','Oberon','Mordred','Minion','Follower','Merlin'];
+			
+			var qtop = 40;
+			var qdia = 80;
+			var qoff = 25;
+			var qend = qoff+qdia;
+			
+			
+			//tiny history
+			var let = 11;
+			ctx.font = '10pt Arial';
+			ctx.fillStyle = 'black';
+						
+			for(var q = 0; q < numplayers; q++){
+				ctx.fillText(players[q],2,qtop+qdia+let*q+20);
+				ctx.strokeStyle='white';
+				ctx.beginPath();
+				ctx.moveTo(0,qtop+qdia+let*q+22);
+				ctx.lineTo(canvas.width,qtop+qdia+let*q+22);
+				ctx.stroke();
+			}
+			
+			var hoff = 70;
+			
+			//log history
+			for(var i =0; i < 5; i++){
+				ctx.font = '10pt Arial';
+				ctx.fillStyle = 'black';
+				for(var j =0; j < 5; j++){
+					for(var k = 0; k <10; k++){
+						ctx.fillText(Math.random()>0.5?"x":"o", hoff+qend*i+let*j, qtop+qdia+let*k+20)
+					}
+				}
+				
+				ctx.beginPath();
+				ctx.arc(qend*i+qoff+qdia/2, qtop+qdia/2, qdia/2, 0, 2 * Math.PI, false);
+				ctx.fillStyle = '#eeeeee';
+				ctx.fill();
+				ctx.lineWidth = 1;
+				ctx.strokeStyle = '#222222';
+				ctx.stroke();
+				
+				ctx.font = '24pt Arial';
+				ctx.fillStyle = 'black';
+				ctx.fillText(teamsize[numplayers][i+1],qend*i+qoff+30,qtop+45);
+			}
+			if(numplayers >= 7){
+				ctx.font = '10pt Arial';
+				ctx.fillStyle = 'black';
+				ctx.fillText("Requires 2",qend*3+qoff+9,qtop+56);
+				ctx.fillText("Fails",qend*3+qoff+25,qtop+70);
+			}
+					
+			function getPlayerList(){
+				var raw = ["Brad","Jeffrey","Darrell*","Dave","Saki","Alex","Tom*"];//TODO AJAX getPlayerList(yourID)
+				//debug
+				raw[(failedvotes+3)%numplayers] += '!';
+				//end debug
+				plist = new Array();
+				for(var i = 0; i < raw.length; i++){
+					var code = 0;
+					if(raw[i].slice(-1) == "!"){
+						raw[i] = raw[i].substring(0,raw[i].length-1);
+						code+=2;
+					}
+					if(raw[i].slice(-1) == "*"){
+						raw[i] = raw[i].substring(0,raw[i].length-1);
+						code+=4;
+					}
+					plist[i] = [raw[i],code];
+				}
+			}
+			/*
+getChar(yourID) returns integer //1 to 8, using Char Enum
+getPlayerList(yourID) returns [playerName...] //ends with * for highlighted, begins with ! for first leader
+teamSelect(yourID, selectedPlayerName) returns true
+teamUnselect(yourID, selectedPlayerName) returns true
+confirmTeam(yourID) returns true
+getTeam() returns [isFinal, [playerName..]]
+getVoteStatus() returns [playerName...] //returns players who have put in a vote
+vote(yourID, choice) //0 for reject/fail, 1 for accept/succeed
+getApprovals() returns [playerName...] //returns players who approved
+getFails() returns integer //number of fails
+assassinate(yourID, potentialMerlin) returns boolean //whether potentialMerlin was Merlin
+endgame() returns [isMerlinDead, [[playerName, charID]...]
+*/
+			function gameOver(maybe, goodwin){
+				if(maybe && goodwin){
+					//ajax assassinate,
+					//	handler gameOver with maybe=false, goodwin if assassination failed
+				} else {
+					//ajax endgame(); to get info about characters
+					alert(goodwin?"Good wins!":"Evil wins!");
+				}
+			}
+			
+			function game(){
+				changeButtons(PHASES.NONE);
+				getPlayerList();
+				if(isLeader){
+					//msg to pick team
+					pickTeam();
+				} else {
+					//msg waiting on pick
+					setTimeout(getTeam(),1000);
+				}
+			}
+			
+			function doVote(){
+				//msg to vote on team
+				//clear voted flags
+				for(var i = 0; i < numplayers; i++){
+					plist[i][1] &= ~FLAGS.VOTED;
+				}
+				changeButtons(PHASES.VOTE);
+				setTimeout(getVoteStatus(),1000);
+			}
+			
+			var afirst = true; //debug var
+			function getVoteStatus(){
+				var voted = ["Darrell","Jeffrey","Saki"]; //ajax getVoteStatus
+				//debug
+				if(afirst){ afirst = false;
+				} else { voted = ["Brad", "Jeffrey", "Darrell", "Dave", "Saki", "Alex", "Tom"];}
+				//end debug
+				if(voted.length >= numplayers){
+					//done voting
+					//clear voted flags
+					for(var i = 0; i < numplayers; i++){
+						plist[i][1] &= ~FLAGS.VOTED;
+					}
+					var approves = ["Darrell","Jeffrey","Saki"];//ajax getApprovals
+					//set approve and reject flags
+					
+					for(var i = 0; i < numplayers; i++){
+						plist[i][1] |= FLAGS.REJECTED;
+						if(approves.indexOf(plist[i][0]) != -1){
+							plist[i][1] |= FLAGS.APPROVED;
+						}
+					}
+					if(approves.length > numplayers/2){
+						//msg vote passed
+						setTimeout(doMission(),400);
+					} else {
+						console.log(failedvotes);
+						//msg vote rejected
+						failedvotes++;
+						if(failedvotes > 5){
+							//too many failed votes, evil wins
+							gameOver(false,false);
+						} else {
+							setTimeout(game(),400);
+						}
+					}
+					
+				} else {
+					//set voted flag
+					for(var i = 0; i < numplayers; i++){
+						if(voted.indexOf(plist[i][0]) != -1){
+							plist[i][1] |= FLAGS.VOTED;
+						}
+					}
+					setTimeout(getVoteStatus(),1000);
+				}
+				updateList();
+			}
+			
+			var first = true;//debug var
+			function getTeam(){
+				var done;
+				var team;
+				//debug
+				if(first){
+					var ajax = [false,["Saki","Jeffrey"]];//ajax get team
+					done = ajax[0];
+					team = ajax[1];
+					first = false;
+				} else {
+					var ajax = [true,["Saki","Dave"]];//ajax get team
+					done = ajax[0];
+					team = ajax[1];
+				}
+				//end debug
+				for(var i = 0; i < plist.length; i++){
+					plist[i][1] &= ~1;
+					for(var j = 0; j < team.length; j++){
+						if(plist[i][0] == team[j]){
+							plist[i][1] |= 1;
+						}
+					}
+				}
+				updateList();
+				doVote();
+				//if no response, setTimeout(getTeam(),1000);
+			}
+			function clearSelected(){
+				for(var i = 0; i < numplayers; i++){
+					if(plist[i][1] & 1){
+						plist[i][1]--;
+					}
+				}
+				numselected = 0;
+			}
+			
+			function pickTeam(){
+				clearSelected();
+				clickableNames = true;
+				changeButtons(PHASES.CONFIRM);
+			}
+			
+			function selectName(s){
+				var index = -1;
+				for(var i = 0; i < plist.length; i++){
+					if(plist[i][0] == s){
+						index = i;
+					}
+				}
+				if(plist[index][1] & 1){ //is selected
+					if(numselected <= 0){
+						alert("error in numselected");
+					} else {
+						//AJAX teamUnselect(yourId,s);
+						numselected--;
+						plist[index][1]--;
+					}
+				} else {
+					if(numselected >= teamsize[numplayers][curphase]){
+						alert("Max members: "+numselected);
+					} else{
+						//AJAX teamSelect(yourId,s);
+						numselected++;
+						plist[index][1]++;
+					}
+				}
+				updateList();
+			}
+			
+			function changeButtons(p){
+				switch(p){
+					case PHASES.NONE:
+						document.getElementById("b1").removeAttribute("onclick");
+						document.getElementById("b2").removeAttribute("onclick");
+						document.getElementById("b1").innerHTML="";
+						document.getElementById("b2").innerHTML="";
+						document.getElementById("b1").disabled=true;
+						document.getElementById("b2").disabled=true;
+						document.getElementById("b1holder").style.display="none";
+						document.getElementById("b2holder").style.display="none";
+						break;
+					case PHASES.CONFIRM:
+						document.getElementById("b1").setAttribute("onclick","confirmTeam()");
+						document.getElementById("b2").removeAttribute("onclick");
+						document.getElementById("b1").innerHTML="Confirm Selection";
+						document.getElementById("b2").innerHTML="";
+						document.getElementById("b1").disabled=false;
+						document.getElementById("b2").disabled=true;
+						document.getElementById("b1holder").style.display="block";
+						document.getElementById("b2holder").style.display="none";
+						break;
+					case PHASES.VOTE:
+						document.getElementById("b1").setAttribute("onclick","vote(true)");
+						document.getElementById("b2").setAttribute("onclick","vote(false)");
+						document.getElementById("b1").innerHTML="Approve";
+						document.getElementById("b2").innerHTML="Reject";
+						document.getElementById("b1").disabled=false;
+						document.getElementById("b2").disabled=false;
+						document.getElementById("b1holder").style.display="block";
+						document.getElementById("b2holder").style.display="block";
+						break;
+					case PHASES.MISSION:
+						document.getElementById("b1").setAttribute("onclick","vote(true)");
+						document.getElementById("b2").setAttribute("onclick","vote(false)");
+						document.getElementById("b1").innerHTML="Succeed";
+						document.getElementById("b2").innerHTML="Fail";
+						document.getElementById("b1").disabled=false;
+						document.getElementById("b2").disabled=(yourChar <= 5) ? false : true;
+						document.getElementById("b1holder").style.display="block";
+						document.getElementById("b2holder").style.display="block";
+						break;
+				}
+			}
+			
+			function confirmTeam(){
+				var diff = teamsize[numplayers][curphase] - numselected;
+				if(diff == 0){
+					//team is good
+					clickableNames = false;
+					changeButtons(PHASES.NONE);
+					updateList();
+					getTeam();
+				} else {
+					alert(numselected+" selected, choose "+diff+" more.");
+				}
+			}
+			
+			function recordQuest(){
+				//red or blue dot on area
+				//if any fails, say how many
+				//write names
+			}
+			
+			function doAjax(func,s,n,handler){
+				var xmlhttp=new XMLHttpRequest();
+				xmlhttp.onreadystatechange=function(){
+					if (xmlhttp.readyState==4 && xmlhttp.status==200){
+							handler(xmlhttp.responseText);
+						}
+					}
+				xmlhttp.open("GET","http://192.168.1.14/digiresistance.php?f="+func+"&s="+s+"&n="+n,true);
+				xmlhttp.send();
+			}
+			
+			// if 7+ players, mission 4 requires 2 fails
+			
+			function clicked(e){
+				updateList();
+				console.log(e);
+			}
+		</script>
+	</body>
+</html>
