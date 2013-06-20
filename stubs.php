@@ -6,27 +6,27 @@ function arrToStr($arr){
 $f = $_GET['f'];
 $n = $_GET['n'];
 switch($f){
-	case: "assassinate":
+	case "assassinate":
 		echo true;
 		break;
-	case: "confirmTeam":
+	case "confirmTeam":
 		echo true;
 		break;
-	case: "createGame":
+	case "createGame":
 		echo true;
 		break;
-	case: "endgame":
+	case "endgame":
 		echo arrToStr(true, arrToStr(array(arrToStr("P1",5),arrToStr("Green Mario",6),arrToStr("Vladimir Putin",7),arrToStr("Patrick Bateman",8),arrToStr("Mister Rogers",1))));
-	case: "getApprovals":
+	case "getApprovals":
 		echo arrToStr(array("Green Mario","Patrick Bateman"));
 		break;
-	case: "getAvailableGames":
+	case "getAvailableGames":
 		echo arrToStr(array(arrToStr(10,5,"testgame1")),array(arrToStr(5,5,"testgame2")));
 		break;
-	case: "getChar":
+	case "getChar":
 		echo 3;
 		break;
-	case: "getFails":
+	case "getFails":
 		echo 2;
 		break;
 	case "getPlayerList":
@@ -35,19 +35,19 @@ switch($f){
 	case "getTeam":
 		echo arrToStr(array(true, arrToStr(array("P1","Green Mario","Vladimir Putin","Patrick Bateman","Mister Rogers"))));
 		break;
-	case: "getVoteStatus":
+	case "getVoteStatus":
 		echo arrToStr(array("Vladimir Putin","Mister Rogers"));
 		break;
-	case: "joinGame":
+	case "joinGame":
 		echo $n;
 		break;
-	case: "setName":
+	case "setName":
 		echo true;
 		break;
-	case: "teamSelect":
+	case "teamSelect":
 		echo true;
 		break;
-	case: "teamUnselect":
+	case "teamUnselect":
 		echo true;
 		break;
 	case "vote":

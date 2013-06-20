@@ -1,0 +1,60 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title></title>
+	</head>
+	<body>
+		<div id="s1">
+			<button type=button onclick="s1c()">Create Game</button>
+			<button type=button onclick="s1j()">Join Game</button>
+		</div>
+		<div id="s1-c" style="display:none">
+			Game name: <input type=text id="game"><br>
+			Number of players: <input type=range min=5 max=10 value=7 id="players" onchange="document.getElementById('nums').innerHTML=this.value" style="display: inline"><p id='nums'>7</p><br>
+			<button type=button onclick="doAjax('createGame',document.getElementById('game').value,document.getElementById('players').value,checkCreate)">Create</button>
+		</div>
+		<div id="s1-j" style="display:none">
+			Available games:<br>
+			<div id="gamelist"></div>
+		</div>
+		<div "s2" style="display:none">
+			Your name:<input type=text id="name"></br>
+			<button type=button onclick="checkName()">Submit</button>
+		</div>
+		<form id="gameInfo">
+			<input type=hidden name="numplayers" id="numplayers">
+			<input type=hidden name="gamename" id="gamename">
+			<input type=hidden name="yourname" id="yourname">
+			<input type=hidden name="yourID" id="yourID">
+		</form>
+		<script>
+			function s1c(){
+				document.getElementById("game").value='';
+				document.getElementById("players").value=7;
+				document.getElementById("s1").style.display='none';
+				document.getElementById("s1-c").style.display='block';
+			}
+			function checkCreate(x){
+				if(x == 1) { alert('score')} else { alert('fail') }
+				console.log("Create game returned "+x);
+			}
+			//getAvailableGames() returns [[maxPlayers,currentPlayers,gameName]...]
+			//createGame(maxPlayers,gameName) returns boolean
+			//joinGame(gameName) returns integer //playerID, 0 if full
+			//setName(playerID, playerName) returns true
+		
+			
+			function doAjax(func,s,n,handler){
+				var xmlhttp=new XMLHttpRequest();
+				xmlhttp.onreadystatechange=function(){
+					if (xmlhttp.readyState==4 && xmlhttp.status==200){
+							handler(xmlhttp.responseText);
+						}
+					}
+				xmlhttp.open("GET","http://localhost/stubs.php?f="+func+"&s="+s+"&n="+n,true);
+				xmlhttp.send();
+			}
+
+		</script>
+	</body>
+</html>
